@@ -796,7 +796,7 @@ dependencies = [
 [[package]]
 name = "leptos-use"
 version = "0.7.0-alpha"
-source = "git+https://github.com/Synphonyte/leptos-use.git?branch=main#37f8bfc6fd97998bb2edd067de639b9f2d772fd2"
+source = "git+https://github.com/Synphonyte/leptos-use.git?branch=main#5499306626c3a3329e5e462c6382c8368b3a5881"
 dependencies = [
  "cfg-if",
  "default-struct-builder",
