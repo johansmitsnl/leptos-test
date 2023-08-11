@@ -1,3 +1,4 @@
+use gloo_timers::future::TimeoutFuture;
 use leptos::*;
 use leptos_router::Outlet;
 use leptos_router::ProtectedRoute;
@@ -21,6 +22,7 @@ pub(crate) struct AppState {
 }
 
 async fn fetch_token() -> Result<Token, ()> {
+    TimeoutFuture::new(1_000).await;
     Ok(Token {
         id: 1,
         account_id: 1,
@@ -74,24 +76,16 @@ fn Main() -> impl IntoView {
     let app_state: RwSignal<AppState> = create_rw_signal(AppState { token: None });
     provide_context(app_state);
 
-    let token = create_resource(
-        || (),
-        move |_| async move {
-            log::debug!("loading token from API");
-            match fetch_token().await {
-                Ok(token) => {
-                    app_state.set(AppState { token: Some(token) });
-                    Some(token)
-                }
-                Err(_) => None,
-            }
-        },
-    );
+    spawn_local(async move {
+        log::debug!("loading token from API");
+        if let Ok(token) = fetch_token().await {
+            app_state.set(AppState { token: Some(token) });
+            log::debug!("We have now a valid token and are logged-in");
+        }
+    });
 
     view! {
-      <Suspense fallback=move || {
-          view! {  "Loading..." }
-      }>{move || { token.read().map(|_| view! {  <App/> }) }}</Suspense>
+      <App/>
     }
 }
 
