@@ -30,17 +30,68 @@ async fn fetch_token() -> Result<Token, ()> {
 }
 
 #[component]
-fn App() -> impl IntoView {
-    let (is_routing, set_is_routing) = create_signal(false);
-    let app_state = expect_context::<RwSignal<AppState>>();
+fn Dash() -> impl IntoView {
+    let app_state = expect_context::<RwSignal<Option<AppState>>>();
 
     let (token, _) = create_slice(
         // we take a slice *from* `state`
         app_state,
         // our getter returns a "slice" of the data
-        |state| state.token,
+        |state| state.map(|stat| stat.token).unwrap_or_default(),
         // our setter describes how to mutate that slice, given a new value
-        |state, token| state.token = token,
+        |state, token| {
+            if let Some(stat) = state {
+                stat.token = token
+            }
+        },
+    );
+
+    view! {
+      <p>"I'm on the dash page now and the account_id is: " {move || token().and_then(|tok| Some(tok.account_id))}</p>
+
+    }
+}
+
+#[component]
+fn App(token: Option<Token>) -> impl IntoView {
+    let token_1 = token.clone();
+
+    view! {
+        <Routes>
+          <ProtectedRoute
+            path="/login"
+            redirect_path="/dash"
+            condition=move || token_1.is_none()
+            view=|| view! { "Login page" }
+          />
+          <ProtectedRoute
+            path="/*"
+            redirect_path="/login"
+            condition=move || token.is_some()
+            view=|| view! { <p>"Dash page"</p><Outlet/> }
+          >
+            <Route path="" view=|| view! {  <Redirect path="/dash"/> }/>
+            <Route path="/dash" view=|| view! {  <Dash/> }/>
+          </ProtectedRoute>
+        </Routes>
+    }
+}
+
+#[component]
+fn Main() -> impl IntoView {
+    let (is_routing, set_is_routing) = create_signal(false);
+    let app_state: RwSignal<Option<AppState>> = create_rw_signal(None);
+    provide_context(app_state);
+
+    let token = create_resource(
+        || (),
+        move |_| async move {
+            log::debug!("loading token from API");
+            let token = fetch_token().await.ok();
+            let new_app_state = Some(AppState { token: token });
+            app_state.set(new_app_state);
+            token
+        },
     );
 
     view! {
@@ -50,42 +101,15 @@ fn App() -> impl IntoView {
         class="RoutingProgress"
       />
       <Router set_is_routing>
-        <Routes>
-          <ProtectedRoute
-            path="/login"
-            redirect_path="/dash"
-            condition=move || token().is_none()
-            view=|| view! { "Login page" }
-          />
-          <ProtectedRoute
-            path="/*"
-            redirect_path="/login"
-            condition=move || token().is_some()
-            view=|| view! { <p>"Dash page"</p><Outlet/> }
-          >
-            <Route path="" view=|| view! {  <Redirect path="/dash"/> }/>
-            <Route path="/dash" view=|| view! {  <p>"I'm on the dash page now"</p> }/>
-          </ProtectedRoute>
-        </Routes>
+        <Suspense fallback=move || {
+            view! {  "Loading..." }
+        }>
+          {move || {
+            token.read()
+              .map(|token| view! { <App token/> }) }
+          }
+        </Suspense>
       </Router>
-    }
-}
-
-#[component]
-fn Main() -> impl IntoView {
-    let app_state: RwSignal<AppState> = create_rw_signal(AppState { token: None });
-    provide_context(app_state);
-
-    spawn_local(async move {
-        log::debug!("loading token from API");
-        if let Ok(token) = fetch_token().await {
-            app_state.set(AppState { token: Some(token) });
-            log::debug!("We have now a valid token and are logged-in");
-        }
-    });
-
-    view! {
-      <App/>
     }
 }
 
