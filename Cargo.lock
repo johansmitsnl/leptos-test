@@ -732,6 +732,9 @@ version = "0.1.0"
 dependencies = [
  "leptos",
  "leptos_router",
+ "reactive_stores",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
