@@ -1,7 +1,4 @@
-use leptos::{
-    logging::{debug_warn, warn},
-    prelude::*,
-};
+use leptos::{logging::debug_warn, prelude::*};
 use reactive_stores::{Field, Store};
 use serde::Serialize;
 
